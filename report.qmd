@@ -1,0 +1,477 @@
+---
+title: "Hvad forklarer forskelle i kommunernes elforbrug?"
+subtitle: "En tværsnitsanalyse af danske kommuner, 2024"
+author: "Ida Plum"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+source("R/analysis.R")
+library(knitr)
+
+```
+
+# Summary
+
+Denne analyse undersøger, hvilke kommunale karakteristika der er forbundet med forskelle i det private elforbrug pr. indbygger i Danmarks 98 kommuner i 2024. På baggrund af data fra Energi Data Service og Danmarks Statistik anvendes multipel lineær regression til at undersøge sammenhængene mellem elforbrug og seks demografiske, økonomiske og strukturelle variable.
+
+Resultaterne viser, at kommuner med højere befolkningstæthed generelt har et lavere registreret elforbrug pr. indbygger, mens en højere andel ældre, større disponibel indkomst, flere elbiler og mere elbaseret opvarmning er forbundet med et højere forbrug, når modellens øvrige variable holdes konstante.
+
+Den stærkeste standardiserede sammenhæng findes for fritidshuse. Dette hænger blandt andet sammen med, at fritidshusenes elforbrug indgår i kommunens registrerede forbrug, mens brugerne ikke nødvendigvis indgår i befolkningstallet.
+
+Modellen beskriver omkring 98 % af variationen mellem kommunerne, men resultaterne viser statistiske sammenhænge og kan ikke fortolkes som kausale effekter.
+
+# Problemstilling
+
+Hvilke karakteristika ved husholdninger og kommunale rammevilkår er forbundet med forskelle i kommunernes elforbrug?
+
+Analysen er en tværsnitsanalyse på kommuneniveau. Resultaterne beskriver derfor statistiske sammenhænge mellem kommunale karakteristika og elforbrug og kan ikke i sig selv fortolkes som kausale effekter på den enkelte husholdnings elforbrug.
+
+# Data og metode
+
+## Analysedesign og datagrundlag
+
+Analysen gennemføres som en tværsnitsanalyse af Danmarks 98 kommuner i 2024. Analyseenheden er kommunen, og formålet er at undersøge, hvilke kommunale karakteristika der er forbundet med forskelle i det registrerede private elforbrug pr. indbygger. Analysen identificerer dermed statistiske sammenhænge på kommuneniveau og kan ikke i sig selv fortolkes som kausale effekter eller som sammenhænge på individ- eller husholdningsniveau.
+
+Data om elforbrug stammer fra Energi Data Service, mens oplysninger om befolkning, indkomst, boliger, opvarmningsform, biler og øvrige kommunekarakteristika er hentet fra Danmarks Statistiks Statistikbank. Data er sammenkoblet ved hjælp af kommunekoder, så forskelle i kommunenavne på tværs af datakilder ikke påvirker sammenkoblingen.
+
+Tabel 1 giver en samlet oversigt over analysens afhængige og forklarende variable, deres operationalisering og datakilder.
+
+
+```{r}
+#| label: tbl-variables
+#| echo: false
+#| tbl-cap: "Oversigt over analysens variable og datakilder"
+
+variable_table <- data.frame(
+  Variabel = c(
+    "Elforbrug pr. indbygger",
+    "Andel 65+",
+    "Disponibel indkomst",
+    "Befolkningstæthed",
+    "Elbilandel",
+    "Elbaseret opvarmning",
+    "Fritidshuse"
+  ),
+  Operationalisering = c(
+    "Summen af det månedlige private elforbrug i 2024 divideret med gennemsnittet af årets 12 månedlige befolkningstal",
+    "Personer på 65 år eller derover som andel af befolkningen",
+    "Gennemsnitlig disponibel familieindkomst",
+    "Gennemsnittet af de 12 månedlige befolkningstal i 2024 divideret med kommunens areal. Indgår logaritmisk i regressionsmodellen",
+    "Gennemsnitlig månedlig bestand af rene elbiler i 2024 divideret med den gennemsnitlige månedlige bestand af alle personbiler i husholdningssektoren i samme periode",
+    "Andel af beboede parcel-/stuehuse, rækkehuse og etageboliger med oplyst opvarmningsform, hvor denne er registreret som varmepumpe eller elvarme",
+    "Fritidshuse uden CPR-tilmeldte personer relativt til den fastboende befolkning"
+  ),
+  Enhed = c(
+    "kWh pr. indbygger",
+    "Andel (0–1)",
+    "1.000 kr.",
+    "Indbyggere pr. km² før transformation",
+    "Andel (0–1)",
+    "Andel (0–1)",
+    "Pr. 1.000 indbyggere"
+  ),
+  Kilde = c(
+    "Energi Data Service / DST, FOLK1AM",
+    "DST, FOLK1AM",
+    "DST, INDKF101",
+    "DST, FOLK1AM og ARE207",
+    "DST, BIL54",
+    "DST, BOL102",
+    "DST, BOL102 og FOLK1AM"
+  )
+)
+
+knitr::kable(
+  variable_table,
+  align = c("l", "l", "l", "l")
+)
+```
+
+
+## Variable
+
+Den afhængige variabel er kommunens registrerede private elforbrug i 2024 målt i kWh pr. indbygger. Det årlige elforbrug beregnes som summen af det registrerede private elforbrug over årets 12 måneder, mens befolkningstallet beregnes som gennemsnittet af de månedlige befolkningstal i 2024. Målet skal derfor fortolkes som et kommunalt forbrugsmål og ikke som den enkelte indbyggers eller husholdnings faktiske elforbrug.
+
+Modellen indeholder seks forklarende variable. **Alderssammensætning** måles som andelen af kommunens befolkning, der er 65 år eller derover. **Disponibel indkomst** måles som den gennemsnitlige disponible familieindkomst i kommunen i 1.000 kr. **Befolkningstæthed** beregnes som antal indbyggere pr. km² og indgår logaritmisk i modellen, da kommunerne varierer meget kraftigt i tæthed, og sammenhængen med elforbruget beskrives mere meningsfuldt ved relative end ved absolutte forskelle i tæthed.
+
+**Elbilandelen** måles som rene elbilers andel af husholdningernes samlede bestand af personbiler. Variablen er et mål for udbredelsen af elbiler blandt kommunens husholdningsejede biler og ikke for det faktiske elforbrug til opladning. **Elbaseret opvarmning** måles som andelen af beboede boliger, hvor elvarme eller varmepumpe er registreret som den primære opvarmningsform. Målet angiver dermed den registrerede opvarmningsform, men ikke hvor mange kWh der faktisk anvendes til opvarmning, og der skelnes ikke mellem direkte elvarme og varmepumper.
+
+Endelig måles **fritidshuse** som antallet af fritidshuse uden CPR-tilmeldte personer relativt til kommunens fastboende befolkning. I regressionsmodellen skaleres variablen, så en enheds forskel svarer til 100 fritidshuse pr. 1.000 indbyggere. Variablen er særlig relevant for konstruktionen af den afhængige variabel, fordi elforbrug i fritidshuse indgår i det registrerede private elforbrug, mens brugerne af fritidshusene ikke nødvendigvis indgår i kommunens registrerede befolkning. Kommuner med mange fritidshuse kan derfor få et højt registreret elforbrug pr. fastboende indbygger, uden at dette nødvendigvis afspejler et tilsvarende højt forbrug blandt de fastboende.
+
+## Regressionsmodel
+
+Sammenhængene estimeres ved hjælp af multipel lineær regression. Metoden gør det muligt at undersøge den partielle sammenhæng mellem hver forklarende variabel og elforbruget pr. indbygger, betinget på modellens øvrige observerede kommunekarakteristika. Dette er væsentligt, fordi flere af de forklarende variable er indbyrdes korrelerede. En simpel bivariat sammenhæng kan derfor adskille sig væsentligt fra den partielle sammenhæng i regressionsmodellen.
+
+Modellen estimeres ved ordinary least squares (OLS). OLS vælger regressionskoefficienterne, så summen af de kvadrerede residualer mellem kommunernes observerede elforbrug og modellens estimerede elforbrug minimeres. Koefficienterne fortolkes som betingede statistiske sammenhænge og ikke som kausale effekter.
+
+## Modelspecifikation og modelvalg
+
+Den oprindelige modelspecifikation omfattede desuden boligstruktur og uddannelsesniveau. Diagnostikken viste imidlertid betydeligt overlap mellem flere af de forklarende variable. Andelen af lavt boligbyggeri var stærkt negativt korreleret med logaritmen til befolkningstætheden, mens uddannelsesniveauet var tæt forbundet med blandt andet indkomst, befolkningstæthed og elbilandel. Variance inflation factors (VIF) understøttede, at dette gav øget multikollinearitet i den fulde model. Sensitivitetsanalyser viste samtidig, at boligstruktur og uddannelsesniveau kunne udelades uden nævneværdige ændringer i de øvrige estimater eller modellens samlede forklaringsgrad. Den mere parsimoniske model med seks forklarende variable blev derfor valgt som hovedspecifikation, mens den fulde model anvendes som sensitivitetsanalyse.
+
+Fritidshusvariablen indgik ikke i den oprindelige modelspecifikation, men blev identificeret gennem den eksplorative analyse af elforbruget pr. indbygger. Flere kommuner med særligt højt elforbrug pr. indbygger havde samtidig mange fritidshuse relativt til den fastboende befolkning. Da elforbrug fra fritidshuse indgår i den afhængige variabel, mens brugerne ikke nødvendigvis indgår i kommunens befolkningstal, blev dette vurderet som en konkret målemæssig begrundelse for at inkludere variablen. Beslutningen er således delvist data-informeret, men baseret på en fortolkelig målemekanisme frem for på variablens efterfølgende statistiske signifikans eller modellens forklaringsgrad. Modellen uden fritidshusvariablen anvendes derfor også som sensitivitetsanalyse.
+
+For at lette fortolkningen af regressionskoefficienterne præsenteres hovedmodellens resultater med skalerede forklaringsvariable. Andelene af personer på 65 år eller derover, elbiler og boliger med elbaseret opvarmning ganges med 100, så koefficienterne angiver ændringen i elforbrug pr. indbygger ved en stigning på ét procentpoint. Fritidshusvariablen divideres med 100, så koefficienten angiver ændringen ved yderligere 100 fritidshuse pr. 1.000 indbyggere. Skaleringen ændrer ikke modellens forklaringsgrad eller statistiske resultater.
+
+## Modeldiagnostik og statistisk inferens
+
+Modellens funktionelle form blev vurderet ved hjælp af component-plus-residual plots, som overordnet understøttede den valgte lineære specifikation. Der var tegn på mulig nonlinearitet i sammenhængen mellem andelen af boliger med elbaseret opvarmning og elforbruget. En sensitivitetsanalyse med et kvadratisk led for elbaseret opvarmning gav kun en beskeden forbedring af modellens fit, mens evidensen for det kvadratiske led var usikker ved anvendelse af robuste standardfejl. Den enklere lineære specifikation blev derfor bevaret som hovedmodel.
+
+Q-Q-plottet viste rimelig overensstemmelse med normalfordelingen i residualernes centrale del, men afvigelser i halerne, herunder en enkelt observation med et særligt stort negativt standardiseret residual. Breusch-Pagan-testen viste tydelig heteroskedasticitet (p < 0,001), dvs. at residualernes varians ikke var konstant. Der anvendes derfor HC3-robuste standardfejl, som giver mere pålidelig inferens under heteroskedasticitet og samtidig tager højde for observationer med høj leverage.
+
+```{r}
+#| label: fig-residual-diagnostics
+#| echo: false
+#| fig-cap: "Residualdiagnostik for hovedmodellen. Til venstre: residualer mod forudsagte værdier. Til højre: normal Q-Q-plot."
+#| fig-width: 10
+#| fig-height: 4.5
+
+library(ggplot2)
+library(patchwork)
+
+diagnostics <- data.frame(
+  fitted = fitted(Model3_scaled),
+  residual = resid(Model3_scaled),
+  std_residual = rstandard(Model3_scaled)
+)
+
+p1 <- ggplot(diagnostics, aes(x = fitted, y = residual)) +
+  geom_point(alpha = 0.7) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    colour = "grey50"
+  ) +
+  geom_smooth(
+    method = "loess",
+    se = FALSE,
+    colour = "steelblue"
+  ) +
+  labs(
+    x = "Forudsagt elforbrug (kWh pr. indbygger)",
+    y = "Residual (kWh pr. indbygger)",
+    title = "Residualer mod forudsagte værdier"
+  ) +
+  theme_minimal()
+
+p2 <- ggplot(diagnostics, aes(sample = std_residual)) +
+  stat_qq(alpha = 0.7) +
+  stat_qq_line(colour = "steelblue") +
+  labs(
+    x = "Teoretiske kvantiler",
+    y = "Standardiserede residualer",
+    title = "Normal Q-Q-plot"
+  ) +
+  theme_minimal()
+
+p1 + p2
+```
+
+Influence-diagnostikken identificerede enkelte kommuner med relativt høj leverage eller store residualer. Odsherred skilte sig særligt ud med et standardiseret residual på −5,42 og en Cook's distance på 1,61, hvilket indikerer, at kommunen har betydelig indflydelse på modelestimationen. Kommunen blev derfor undersøgt særskilt, men blev ikke udeladt fra hovedanalysen, da der ikke blev identificeret en datafejl eller anden substantiel begrundelse for eksklusion. En sensitivitetsanalyse uden Odsherred gav ikke anledning til væsentligt ændrede konklusioner, og alle 98 kommuner indgår derfor i hovedmodellen.
+
+```{r}
+#| label: fig-cooks-distance
+#| echo: false
+#| fig-cap: "Cook's distance for de 98 kommuner. Den stiplede linje angiver den vejledende grænse 4/n."
+#| fig-width: 10
+#| fig-height: 5
+
+library(ggrepel)
+
+influence_data <- data.frame(
+  Municipality = municipality_data$Municipality,
+  cooks_distance = cooks.distance(Model3_scaled)
+) |>
+  dplyr::mutate(
+    observation = dplyr::row_number(),
+    label = ifelse(
+      cooks_distance > 4 / dplyr::n(),
+      Municipality,
+      NA_character_
+    )
+  )
+
+ggplot(
+  influence_data,
+  aes(x = observation, y = cooks_distance)
+) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  geom_hline(
+    yintercept = 4 / nrow(influence_data),
+    linetype = "dashed",
+    colour = "grey40"
+  ) +
+  ggrepel::geom_text_repel(
+    aes(label = label),
+    na.rm = TRUE,
+    max.overlaps = Inf,
+    size = 3.5
+  ) +
+  labs(
+    x = "Observation (kommune)",
+    y = "Cook's distance"
+  ) +
+  theme_minimal()
+```
+
+# Resultater
+
+Den endelige regressionsmodel estimerer sammenhængen mellem kommunernes årlige elforbrug pr. indbygger og seks kommunale karakteristika: procentandelen af befolkningen på 65 år eller derover, gennemsnitlig disponibel familieindkomst, befolkningstæthed, elbilandel i procent, procentandelen af boliger med elbaseret opvarmning samt antallet af fritidshuse relativt til den fastboende befolkning.
+
+
+
+```{r}
+#| label: tbl-model3
+#| tbl-cap: "Regressionsresultater for den endelige model"
+#| echo: false
+
+model_table <- tibble(
+  Variable = c(
+    "Konstant",
+    "Andel 65+ (procentpoint)",
+    "Disponibel indkomst (1.000 kr.)",
+    "Befolkningstæthed (log)",
+    "Elbilandel (procentpoint)",
+    "Elbaseret opvarmning (procentpoint)",
+    "Fritidshuse (100 pr. 1.000 indbyggere)"
+  ),
+  Estimate = Model3_scaled_HC3[, "Estimate"],
+  `Robust SE` = Model3_scaled_HC3[, "Std. Error"],
+  `p-værdi` = Model3_scaled_HC3[, "Pr(>|t|)"]
+)
+
+model_table |>
+  mutate(
+    Estimate = round(Estimate, 2),
+    `Robust SE` = round(`Robust SE`, 2),
+    `p-værdi` = format.pval(`p-værdi`, digits = 3, eps = 0.001)
+  ) |>
+  kable(
+    col.names = c(
+      "Variabel",
+      "Estimat",
+      "HC3 standardfejl",
+      "p-værdi"
+    )
+  )
+```
+
+## Sammenhænge med elforbruget
+
+Når de øvrige variable i modellen holdes konstante, er ét procentpoint højere andel af befolkningen på 65 år eller derover forbundet med ca. **23,7 kWh højere årligt elforbrug pr. indbygger**.
+
+Ét procentpoint højere elbilandel er tilsvarende forbundet med ca. **26,0 kWh højere elforbrug pr. indbygger**, mens ét procentpoint større andel boliger med elbaseret opvarmning er forbundet med ca. **23,6 kWh højere forbrug pr. indbygger**.
+
+En forskel på 100 fritidshuse pr. 1.000 fastboende er forbundet med ca. **312 kWh højere registreret elforbrug pr. indbygger**.
+
+Befolkningstæthed indgår logaritmisk i modellen. En fordobling af befolkningstætheden er forbundet med omtrent:
+
+```{r}
+#| echo: false
+#| results: asis
+
+density_doubling <-
+  coef(Model3_scaled)["log_population_density"] * log(2)
+
+cat(
+  "**",
+  format(
+    round(abs(density_doubling), 1),
+    decimal.mark = ",",
+    nsmall = 1
+  ),
+  " kWh lavere årligt elforbrug pr. indbygger**.",
+  sep = ""
+)
+```
+
+Sammenhængen med disponibel indkomst er positiv, men relativt beskeden i praktisk størrelse. En forskel på 10.000 kr. i gennemsnitlig disponibel familieindkomst er forbundet med ca. 4,5 kWh højere årligt elforbrug pr. indbygger, når de øvrige variable holdes konstante.
+
+## Sammenligning af sammenhængenes størrelse
+
+For at kunne sammenligne størrelsen af de partielle sammenhænge på tværs af forklaringsvariable med forskellige måleenheder blev forklaringsvariablene desuden standardiseret. Hver forklaringsvariabel blev centreret omkring sit gennemsnit og divideret med sin standardafvigelse, mens elforbruget pr. indbygger blev bevaret i den oprindelige enhed. Koefficienterne nedenfor viser derfor forskellen i kWh pr. indbygger forbundet med én standardafvigelses højere værdi af den pågældende forklaringsvariabel, når de øvrige variable holdes konstante.
+
+```{r}
+#| label: fig-standardized
+#| fig-cap: "Partielle sammenhænge med elforbrug ved én standardafvigelses højere værdi af de enkelte kommunekarakteristika. Punkterne viser koefficientestimater, og de vandrette linjer viser 95 %-konfidensintervaller beregnet med HC3-robuste standardfejl."
+#| echo: false
+#| fig-width: 8
+#| fig-height: 5
+
+critical_value <- qt(
+  0.975,
+  df = df.residual(Model3_standardized)
+)
+
+standardized_results <- tibble(
+  term = rownames(Model3_standardized_HC3)[-1],
+  estimate = Model3_standardized_HC3[-1, "Estimate"],
+  se = Model3_standardized_HC3[-1, "Std. Error"]
+) |>
+  mutate(
+    variable = recode(
+      term,
+      z_share_65plus = "Andel 65+",
+      z_mean_disposable_income = "Disponibel indkomst",
+      z_log_population_density = "Befolkningstæthed (log)",
+      z_ev_share = "Elbilandel",
+      z_share_electric_heating = "Elbaseret opvarmning",
+      z_holiday_homes_per_1000 = "Fritidshuse"
+    ),
+    lower = estimate - critical_value * se,
+    upper = estimate + critical_value * se,
+    variable = reorder(variable, estimate)
+  )
+
+ggplot(
+  standardized_results,
+  aes(x = estimate, y = variable)
+) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_errorbar(
+    aes(xmin = lower, xmax = upper),
+    width = 0.15
+  ) +
+  geom_point(size = 2.5) +
+  labs(
+    x = "Forskel i kWh pr. indbygger ved 1 SD højere værdi",
+    y = NULL
+  ) +
+  theme_minimal()
+```
+
+Den standardiserede koefficient er størst for fritidshusvariablen og svarer til ca. **401 kWh pr. indbygger** ved en forskel på én standardafvigelse i antallet af fritidshuse. Herefter følger elbaseret opvarmning med ca. **206 kWh**, befolkningstæthed med ca. **−141 kWh** og andelen af befolkningen over 65 år med ca. **127 kWh**.
+
+Elbilandelen er forbundet med ca. **65 kWh højere elforbrug pr. indbygger pr. standardafvigelse**, mens den tilsvarende sammenhæng for disponibel indkomst er ca. **44 kWh**.
+
+Disse størrelser skal ikke fortolkes som kausale effekter eller som en rangordning af faktorernes kausale betydning. De giver derimod mulighed for at sammenligne størrelsen af de partielle statistiske sammenhænge på tværs af variable, der oprindeligt er målt i forskellige enheder.
+
+# Kommuner med højere og lavere forbrug end forventet
+
+Modellen kan også anvendes som benchmark for den enkelte kommune. Residualet angiver forskellen mellem kommunens faktiske elforbrug og det forbrug, modellen forventer ud fra de inkluderede karakteristika.
+
+Et positivt residual betyder således, at det faktiske forbrug ligger over modellens forventede niveau, mens et negativt residual betyder, at det ligger under.
+
+
+
+```{r}
+#| label: fig-residuals
+#| fig-cap: "Kommuner med de fem største positive og negative afvigelser mellem faktisk og modelforventet elforbrug."
+#| echo: false
+#| fig-width: 8
+#| fig-height: 5
+
+residual_plot_data <- bind_rows(
+  municipality_results |>
+    arrange(desc(residual_kwh_per_capita)) |>
+    slice_head(n = 5),
+
+  municipality_results |>
+    arrange(residual_kwh_per_capita) |>
+    slice_head(n = 5)
+) |>
+  mutate(
+    Municipality = reorder(
+      Municipality,
+      residual_kwh_per_capita
+    )
+  )
+
+ggplot(
+  residual_plot_data,
+  aes(
+    x = residual_kwh_per_capita,
+    y = Municipality
+  )
+) +
+  geom_vline(
+    xintercept = 0,
+    linetype = "dashed"
+  ) +
+  geom_segment(
+    aes(
+      x = 0,
+      xend = residual_kwh_per_capita,
+      yend = Municipality
+    ),
+    linewidth = 1
+  ) +
+  geom_point(size = 3) +
+  labs(
+    x = "Faktisk minus forventet forbrug (kWh pr. indbygger)",
+    y = NULL
+  ) +
+  theme_minimal()
+```
+
+Varde har modellens største positive residual. Kommunens faktiske forbrug er ca. 2.709 kWh pr. indbygger mod et forventet niveau på ca. 2.379 kWh, svarende til omkring **330 kWh pr. indbygger mere end forventet**. Samsø, Gribskov og Læsø har ligeledes relativt store positive afvigelser.
+
+Odsherred har den største negative afvigelse. Kommunens faktiske forbrug er ca. 3.923 kWh pr. indbygger mod modellens forventede ca. 4.409 kWh. Odsherred ligger dermed omkring **486 kWh pr. indbygger under det forventede niveau**. Bornholm og Lolland ligger ligeledes mere end 200 kWh pr. indbygger under modellens forventning.
+
+```{r}
+#| label: tbl-residuals
+#| tbl-cap: "Kommuner med de største afvigelser fra modellens forventede elforbrug"
+#| echo: false
+
+residual_table <- bind_rows(
+  municipality_results |>
+    arrange(desc(residual_kwh_per_capita)) |>
+    slice_head(n = 5),
+
+  municipality_results |>
+    arrange(residual_kwh_per_capita) |>
+    slice_head(n = 5)
+) |>
+  transmute(
+    Kommune = Municipality,
+    `Faktisk forbrug` = round(kwh_per_capita),
+    `Forventet forbrug` = round(expected_kwh_per_capita),
+    Residual = round(residual_kwh_per_capita)
+  )
+
+kable(residual_table)
+```
+
+Residualerne bør ikke fortolkes som direkte mål for kommunernes energieffektivitet. De identificerer i stedet kommuner, hvis forbrug ikke fuldt ud følger de gennemsnitlige sammenhænge mellem elforbruget og de strukturelle karakteristika, der indgår i modellen. Kommunerne kan derfor være relevante cases for videre undersøgelser af forhold, som ikke er inkluderet i den nuværende model.
+
+# Diskussion
+
+Modellen beskriver det forventede kommunale elforbrug pr. indbygger ud fra de karakteristika, der indgår i analysen. Den tager dermed ikke højde for alle forskelle mellem kommunerne, som potentielt kan være forbundet med elforbruget. Den gennemsnitlige disponible indkomst beskriver eksempelvis kommunens overordnede indkomstniveau, men ikke indkomstfordelingen inden for kommunen. Tilsvarende kan lokale forhold som kommunale energiinitiativer, erhvervs- og pendlingsmønstre eller andre strukturelle forskelle have betydning uden at være repræsenteret i modellen. Resultaterne bør derfor fortolkes som betingede statistiske sammenhænge mellem de inkluderede kommunekarakteristika og elforbruget og ikke som kausale effekter.
+
+Analysen viser blandt andet, at højere befolkningstæthed er forbundet med et lavere elforbrug pr. indbygger, når modellens øvrige variable holdes konstante. Sammenhængen kan være forenelig med en række mekanismer, eksempelvis forskelle i boligstørrelse, boligform eller energibehov mellem tættere og mindre tæt bebyggede områder, men analysen kan ikke afgøre, hvilke mekanismer der ligger bag. Boligstruktur indgik i den oprindelige modelspecifikation, men blev udeladt fra hovedmodellen på grund af det betydelige overlap med blandt andet befolkningstætheden.
+
+Fritidshusvariablen har en særlig rolle i analysen. Kommuner med mange fritidshuse relativt til den fastboende befolkning har markant højere registreret elforbrug pr. indbygger. Dette skal imidlertid ses i sammenhæng med konstruktionen af den afhængige variabel: fritidshusenes elforbrug indgår i kommunens private elforbrug, mens de personer, der benytter fritidshusene, ikke nødvendigvis indgår i kommunens registrerede befolkning. Desuden anvendes den fastboende befolkning som nævner både i elforbruget pr. indbygger og i målet for fritidshuse pr. 1.000 indbyggere. Sammenhængens størrelse kan derfor ikke fortolkes som en kausal effekt af flere fritidshuse på de fastboende borgeres elforbrug.
+
+Både den gennemsnitlige disponible indkomst og elbilandelen er i den multiple regressionsmodel positivt forbundet med elforbruget. Elbilandelen er samtidig tæt positivt korreleret med indkomst og flere af modellens øvrige kommunekarakteristika. Det illustreres af, at den simple korrelation mellem elbilandel og elforbrug er negativ, mens den estimerede partielle sammenhæng bliver positiv, når der kontrolleres for modellens øvrige variable. Resultatet understreger dermed forskellen mellem bivariat samvariation og den betingede sammenhæng, der estimeres i en multipel regressionsmodel.
+
+Andelen af boliger med elbaseret opvarmning er ligeledes positivt forbundet med kommunernes elforbrug pr. indbygger. Sammenhængen er forventelig, da både direkte elvarme og varmepumper anvender elektricitet til opvarmning. Variablen måler imidlertid alene, om elbaseret opvarmning er registreret som boligens primære opvarmningsform, og ikke det faktiske elforbrug til opvarmning. Desuden skelner modellen ikke mellem direkte elvarme og varmepumper, selv om deres energieffektivitet kan være væsentligt forskellig. Resultatet understøtter derfor, at kommunernes opvarmningsstruktur er forbundet med forskelle i elforbruget, men gør det ikke muligt at kvantificere, hvor stor en del af forbruget der skyldes opvarmning.
+
+Analysen viser desuden en positiv sammenhæng mellem andelen af indbyggere på 65 år eller derover og elforbruget pr. indbygger. En mulig forklaring kan være forskelle i husholdningsstørrelse, boligforhold eller opholdstid i hjemmet, men disse mekanismer undersøges ikke direkte i modellen. Sammenhængen kan derfor ikke fortolkes som dokumentation for, at ældre personer generelt anvender mere elektricitet end yngre personer.
+
+Dette illustrerer en mere generel begrænsning ved analysens aggregeringsniveau. Da observationerne er kommuner frem for individuelle husholdninger, kan sammenhænge på kommuneniveau ikke uden videre overføres til individniveau. En sådan fortolkning ville indebære risiko for en økologisk fejlslutning. Eksempelvis kan en kommune med en høj andel ældre have et højt elforbrug pr. indbygger, uden at det nødvendigvis er de ældre indbyggere, der står for det højere forbrug. En analyse af husholdningernes faktiske elforbrug og karakteristika ville være nødvendig for at undersøge sådanne sammenhænge på husholdningsniveau.
+
+Undersøgelsen er desuden baseret på tværsnitsdata fra 2024. Modellen beskriver dermed forskelle mellem kommuner på ét tidspunkt, men giver ikke mulighed for at undersøge, hvordan ændringer i kommunernes karakteristika hænger sammen med ændringer i elforbruget over tid. Det begrænser mulighederne for at vurdere årsagssammenhænge. Eksempelvis kan analysen ikke afgøre, om en stigende elbilandel i en kommune medfører et højere registreret privat elforbrug, eller hvordan ændringer i opvarmningsformer påvirker forbruget. En analyse med data for flere år ville kunne belyse udviklingen inden for de enkelte kommuner, men ville ikke i sig selv være tilstrækkelig til at identificere kausale effekter.
+
+Modellen har en meget høj forklaringsgrad med en R² på cirka 0,98. Det betyder, at modellen beskriver omkring 98 % af variationen i det observerede elforbrug pr. indbygger mellem kommunerne i det anvendte datasæt. Dette er imidlertid ikke ensbetydende med, at de inkluderede variable forklarer 98 % af de bagvedliggende årsager til husholdningernes elforbrug. Særligt fritidshusvariablen bidrager til en høj statistisk forklaringsgrad, men dens stærke sammenhæng med elforbruget skal blandt andet forstås i lyset af den måde, den afhængige variabel er konstrueret på. Den høje R² bør derfor betragtes som et udtryk for modellens evne til at beskrive variationen mellem de 98 kommuner i 2024 og ikke som dokumentation for kausale sammenhænge eller for modellens evne til at forudsige elforbruget i andre år.
+
+Samlet peger analysen på, at både demografiske forhold, økonomiske karakteristika og kommunernes bolig- og energistruktur er forbundet med forskelle i det registrerede private elforbrug pr. indbygger. Resultaterne viser samtidig betydningen af at være opmærksom på, hvordan elforbruget opgøres, og hvilke forhold de anvendte variable faktisk måler. Analysen giver dermed et statistisk overblik over kommunale forskelle, men ikke en fuldstændig forklaring på de mekanismer, der bestemmer husholdningernes elforbrug.
+
+# Konklusion
+
+Analysen viser, at forskelle i danske kommuners registrerede private elforbrug pr. indbygger i 2024 er forbundet med både demografiske, økonomiske og strukturelle karakteristika. Højere befolkningstæthed er forbundet med et lavere elforbrug pr. indbygger, mens en højere andel ældre, større gennemsnitlig disponibel indkomst, højere elbilandel og større udbredelse af elbaseret opvarmning er positivt forbundet med elforbruget, når modellens øvrige variable holdes konstante.
+
+Forekomsten af fritidshuse har den stærkeste standardiserede sammenhæng med elforbruget. Dette resultat skal dog ses i lyset af, at fritidshusenes elforbrug indgår i kommunens samlede private elforbrug, mens brugerne ikke nødvendigvis indgår i den fastboende befolkning, som forbruget opgøres i forhold til.
+
+Modellen beskriver en meget stor del af variationen mellem kommunerne, men resultaterne kan ikke fortolkes som kausale effekter. Analysen peger således på væsentlige kommunale karakteristika, der er forbundet med forskelle i elforbruget, samtidig med at den understreger betydningen af datagrundlagets opbygning og valget af analyseenhed.
