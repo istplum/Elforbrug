@@ -8,7 +8,7 @@ Dette projekt undersøger sammenhængen mellem elforbrug og udvalgte demografisk
 
 Analysen er gennemført i **R** og dokumenteret i en **Quarto-rapport**.
 
-**[Læs den fulde analyserapport](report.html)**
+**[Læs den fulde analyserapport](https://istplum.github.io/Elforbrug/report.html)**
 
 ## Datagrundlag
 
