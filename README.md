@@ -61,3 +61,11 @@ En væsentlig metodisk begrænsning er, at fritidshusenes elforbrug kan indgå i
 Projektet er udviklet i R og RStudio. Koden og datagrundlaget er tilgængelige i dette repository.
 
 Rapporten er genereret med Quarto, så analyseresultater, tabeller og figurer kan opdateres direkte fra R-koden.
+
+## Brug af AI i projektet
+
+Under arbejdet med projektet har jeg anvendt ChatGPT som læringsværktøj og faglig sparringspartner. AI er blandt andet blevet brugt til at forklare metoder og R-kode, hjælpe med fejlfinding, diskutere statistiske problemstillinger og understøtte udformningen af kode og rapporttekst.
+
+Arbejdsprocessen har været tilrettelagt med fokus på læring og selvstændig forståelse frem for automatiseret analyse. Jeg har løbende arbejdet med at forstå, afprøve og vurdere de foreslåede løsninger og har selv taget stilling til analysens metodiske valg, fortolkninger og konklusioner.
+
+AI har således været et hjælpemiddel i analyse- og skriveprocessen, mens ansvaret for projektets indhold og resultater er mit eget.
